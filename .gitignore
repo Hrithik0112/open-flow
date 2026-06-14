@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+out/
+build/
+*.tsbuildinfo
+
+# Swift
+.build/
+Package.resolved
+.swiftpm/
+DerivedData/
+
+# Electron
+release/
+*.app
+*.dmg
+
+# Editor / OS
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json.example
+.idea/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Env
+.env
+.env.local
+
+# Bundled sidecar binary (built by scripts/build-sidecar.sh)
+apps/desktop/resources/bin/
+
+# Downloaded models (large, never committed)
+models/
+*.mlmodelc
+*.mlpackage
+
+spec.md
