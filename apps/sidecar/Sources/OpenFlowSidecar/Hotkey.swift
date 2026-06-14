@@ -55,9 +55,12 @@ final class HotkeyMonitor {
         self.eventTap = tap
         let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
         self.runLoopSource = source
-        CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
+        // Bind to the main run loop. CFRunLoopGetCurrent() would attach to whichever
+        // thread happens to call start() — for us that's the stdin dispatch queue,
+        // whose run loop isn't running, so events would never fire.
+        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
-        Logger.log("hotkey monitor started")
+        Logger.log("hotkey monitor started (bound to main runloop)")
     }
 
     func stop() {
@@ -65,18 +68,16 @@ final class HotkeyMonitor {
             CGEvent.tapEnable(tap: tap, enable: false)
         }
         if let src = runLoopSource {
-            CFRunLoopRemoveSource(CFRunLoopGetCurrent(), src, .commonModes)
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), src, .commonModes)
         }
         eventTap = nil
         runLoopSource = nil
     }
 
     private func handle(type: CGEventType, event: CGEvent) {
-        // Right Option (keycode 61) lives in the modifier flags rather than keyDown/Up.
-        // For non-modifier keys we use keyDown/keyUp.
-        let isModifierKey = binding.keycode == 61 || binding.keycode == 60 ||
-            binding.keycode == 58 || binding.keycode == 54 || binding.keycode == 59 ||
-            binding.keycode == 56 || binding.keycode == 55 || binding.keycode == 63
+        // Modifier keys arrive as flagsChanged events. Non-modifier keys as keyDown/keyUp.
+        let modifierKeycodes: Set<Int> = [54, 55, 56, 58, 59, 60, 61, 62, 63]
+        let isModifierKey = modifierKeycodes.contains(binding.keycode)
         let keycode = Int(event.getIntegerValueField(.keyboardEventKeycode))
 
         if isModifierKey && type == .flagsChanged {

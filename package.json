@@ -12,7 +12,7 @@
     "build:desktop": "pnpm --filter @open-flow/desktop build",
     "build": "pnpm build:sidecar && pnpm build:desktop",
     "dev": "pnpm --filter @open-flow/desktop dev",
-    "download-model": "tsx scripts/download-model.ts",
+    "rebuild:native": "electron-rebuild --module-dir apps/desktop",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
@@ -20,6 +20,7 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md}\""
   },
   "devDependencies": {
+    "@electron/rebuild": "^4.0.4",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
     "eslint": "^9.0.0",

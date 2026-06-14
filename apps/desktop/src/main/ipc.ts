@@ -6,12 +6,7 @@ import {
   saveSettings,
   listHistory,
 } from './store.js';
-import {
-  MODEL_MANIFEST,
-  downloadModel,
-  isModelInstalled,
-  modelDirFor,
-} from './models.js';
+import { MODEL_MANIFEST, downloadBase, isModelInstalled } from './models.js';
 import { getStatus, openSettingsPane, promptAccessibility, requestMicrophone } from './permissions.js';
 import { openRoute } from './windows.js';
 import type { DictionaryRule, Settings, WhisperModelId } from '@open-flow/shared';
@@ -38,20 +33,9 @@ export function registerRendererIpc(sidecar: Sidecar): void {
     MODEL_MANIFEST.map((m) => ({ ...m, installed: isModelInstalled(m.id) })),
   );
 
-  ipcMain.handle('models:download', async (event: IpcMainInvokeEvent, id: WhisperModelId) => {
-    const sender = BrowserWindow.fromWebContents(event.sender);
-    const emit = (msg: unknown): void => {
-      sender?.webContents.send('models:download:progress', msg);
-    };
-    try {
-      await downloadModel(id, (p) => emit({ kind: 'progress', id, ...p }));
-      sidecar.send({ type: 'loadModel', modelPath: modelDirFor(id) });
-      emit({ kind: 'done', id });
-      return { ok: true } as const;
-    } catch (err) {
-      emit({ kind: 'error', id, message: (err as Error).message });
-      return { ok: false, message: (err as Error).message } as const;
-    }
+  ipcMain.handle('models:install', (_e: IpcMainInvokeEvent, id: WhisperModelId) => {
+    sidecar.send({ type: 'loadModel', modelName: id, downloadBase: downloadBase() });
+    return true;
   });
 
   ipcMain.handle('permissions:status', () => getStatus());
@@ -64,9 +48,32 @@ export function registerRendererIpc(sidecar: Sidecar): void {
     openSettingsPane(kind);
     return true;
   });
+  ipcMain.handle('sidecar:permissions:check', () => {
+    sidecar.send({ type: 'permissions.check' });
+    return true;
+  });
+  ipcMain.handle('sidecar:permissions:requestMicrophone', () => {
+    sidecar.send({ type: 'permissions.requestMicrophone' });
+    return true;
+  });
+  ipcMain.handle('sidecar:permissions:requestInputMonitoring', () => {
+    sidecar.send({ type: 'permissions.requestInputMonitoring' });
+    return true;
+  });
+  ipcMain.handle('sidecar:permissions:promptAccessibility', () => {
+    sidecar.send({ type: 'permissions.promptAccessibility' });
+    return true;
+  });
 
-  ipcMain.handle('window:open', (_e, route: 'onboarding' | 'settings' | 'dictionary' | 'history') => {
+  ipcMain.handle('window:open', (_e, route: 'status' | 'onboarding' | 'settings' | 'dictionary' | 'history') => {
     openRoute(route);
     return true;
   });
+}
+
+// Forward selected sidecar events to all renderer windows.
+export function forwardSidecarEventToRenderers(channel: string, payload: unknown): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) win.webContents.send(channel, payload);
+  }
 }

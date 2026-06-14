@@ -10,17 +10,23 @@ final class App {
     var hudThrottleCounter = 0
 
     func run() {
-        // Read stdin asynchronously and dispatch messages.
+        // Read stdin asynchronously and route messages through the main queue,
+        // so HotkeyMonitor binds its CGEvent tap to the main run loop and
+        // audio/transcribe operations don't bounce across threads.
         stdinHandle.readabilityHandler = { [weak self] handle in
             guard let self else { return }
             let data = handle.availableData
             if data.isEmpty {
-                Logger.log("stdin EOF, shutting down")
-                DispatchQueue.main.async { self.shutdown() }
+                DispatchQueue.main.async {
+                    Logger.log("stdin EOF, shutting down")
+                    self.shutdown()
+                }
                 return
             }
-            self.stdinBuffer.append(data)
-            self.drainStdin()
+            DispatchQueue.main.async {
+                self.stdinBuffer.append(data)
+                self.drainStdin()
+            }
         }
 
         audio.onLevels = { [weak self] rms in
@@ -51,7 +57,7 @@ final class App {
 
     private func handle(_ msg: Outgoing) {
         switch msg {
-        case .initial(let settings, let dict, let modelPath):
+        case .initial(let settings, let dict, _, _):
             transcriber.setDictionary(dict)
             audio.setMaxSeconds(settings.maxRecordingSeconds)
             let monitor = HotkeyMonitor(binding: settings.hotkey) { [weak self] pressed in
@@ -59,11 +65,7 @@ final class App {
             }
             monitor.start()
             self.hotkey = monitor
-            if !modelPath.isEmpty {
-                Task { await self.tryLoadModel(modelPath) }
-            } else {
-                IPC.send(.modelMissing(wanted: settings.model))
-            }
+            emitPermissions()
 
         case .setHotkey(let binding):
             hotkey?.update(binding: binding)
@@ -71,21 +73,51 @@ final class App {
         case .setDictionary(let rules):
             transcriber.setDictionary(rules)
 
-        case .loadModel(let path):
-            Task { await self.tryLoadModel(path) }
+        case .loadModel(let name, let downloadBase):
+            Task { await self.tryLoadModel(name: name, downloadBase: downloadBase) }
 
         case .injectText(let text):
             Injector.paste(text)
+
+        case .permissionsCheck:
+            emitPermissions()
+
+        case .permissionsRequestMicrophone:
+            Task {
+                _ = await SidecarPermissions.requestMicrophone()
+                self.emitPermissions()
+            }
+
+        case .permissionsRequestInputMonitoring:
+            SidecarPermissions.requestInputMonitoring()
+            // Re-check shortly after to capture user grant in System Settings.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                self.emitPermissions()
+            }
+
+        case .permissionsPromptAccessibility:
+            SidecarPermissions.promptAccessibility()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                self.emitPermissions()
+            }
 
         case .shutdown:
             shutdown()
         }
     }
 
-    private func tryLoadModel(_ path: String) async {
+    private func emitPermissions() {
+        IPC.send(.permissions(
+            microphone: SidecarPermissions.microphone(),
+            inputMonitoring: SidecarPermissions.inputMonitoring(),
+            accessibility: SidecarPermissions.accessibility(),
+            binaryPath: SidecarPermissions.binaryPath()
+        ))
+    }
+
+    private func tryLoadModel(name: String, downloadBase: String) async {
         do {
-            try await transcriber.loadModel(at: path)
-            IPC.send(.ready)
+            try await transcriber.loadModel(name: name, downloadBase: downloadBase)
         } catch {
             IPC.send(.error(code: "model.loadFailed", message: String(describing: error)))
         }

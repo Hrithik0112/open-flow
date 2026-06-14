@@ -1,12 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { WhisperModelId } from '@open-flow/shared';
 
-interface Status {
-  microphone: string;
-  inputMonitoring: string;
-  accessibility: string;
-}
-
 interface ModelEntry {
   id: WhisperModelId;
   displayName: string;
@@ -15,138 +9,192 @@ interface ModelEntry {
   installed: boolean;
 }
 
-type DownloadMsg =
-  | { kind: 'progress'; id: string; bytesDownloaded: number; totalBytes: number; currentFile: string; filesDone: number; totalFiles: number }
-  | { kind: 'done'; id: string }
-  | { kind: 'error'; id: string; message: string };
+interface SidecarPermissions {
+  microphone: string;
+  inputMonitoring: string;
+  accessibility: string;
+  binaryPath: string;
+}
+
+interface ProgressState {
+  fraction: number;
+  message: string;
+}
 
 export function Onboarding(): JSX.Element {
-  const [status, setStatus] = useState<Status | null>(null);
+  const [perms, setPerms] = useState<SidecarPermissions | null>(null);
   const [models, setModels] = useState<ModelEntry[]>([]);
-  const [download, setDownload] = useState<DownloadMsg | null>(null);
+  const [installing, setInstalling] = useState<WhisperModelId | null>(null);
+  const [progress, setProgress] = useState<ProgressState | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  async function refresh(): Promise<void> {
-    const s = (await window.openFlow.permissions.status()) as Status;
+  async function refreshModels(): Promise<void> {
     const m = (await window.openFlow.models.list()) as ModelEntry[];
-    setStatus(s);
     setModels(m);
   }
 
   useEffect(() => {
-    void refresh();
-    const off = window.openFlow.models.onDownloadProgress((msg) => {
-      setDownload(msg as DownloadMsg);
-      if ((msg as DownloadMsg).kind === 'done') void refresh();
+    void refreshModels();
+    void window.openFlow.sidecarPermissions.check();
+    const offPerms = window.openFlow.sidecarPermissions.onUpdate((p) => {
+      setPerms(p);
     });
-    return off;
+    const offProgress = window.openFlow.models.onProgress((p) => {
+      setProgress(p);
+      setError(null);
+    });
+    const offLoaded = window.openFlow.models.onLoaded(() => {
+      setInstalling(null);
+      setProgress(null);
+      setError(null);
+      void refreshModels();
+    });
+    const offError = window.openFlow.models.onError((e) => {
+      setInstalling(null);
+      setError(e.message);
+    });
+    return () => {
+      offPerms();
+      offProgress();
+      offLoaded();
+      offError();
+    };
   }, []);
 
-  if (!status) return <div className="page">Loading…</div>;
+  if (!perms) return <div className="page">Checking permissions…</div>;
 
   const defaultModel = models.find((m) => m.id === 'openai_whisper-base.en');
 
   return (
     <div className="page">
       <h1>Welcome to open-flow</h1>
-      <p>open-flow needs three macOS permissions and one Whisper model to do its job. Everything stays on your machine.</p>
+      <p>
+        open-flow needs three macOS permissions and one Whisper model. Permissions are granted{' '}
+        <strong>per binary</strong>, and the binary that does the recording / hotkey / paste work is
+        the sidecar process listed below. macOS will not auto-prompt for Input Monitoring; you must
+        add the binary in System Settings.
+      </p>
 
-      <Step
+      <div className="row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
+        <strong>Sidecar binary</strong>
+        <code style={{ wordBreak: 'break-all', opacity: 0.75 }}>{perms.binaryPath}</code>
+      </div>
+
+      <PermissionStep
         title="Microphone"
-        body="Records audio while you hold the hotkey. Nothing leaves your machine."
-        granted={status.microphone === 'granted'}
-        action={async () => {
-          await window.openFlow.permissions.requestMicrophone();
-          await refresh();
-        }}
-        openPane={() => window.openFlow.permissions.openPane('microphone')}
+        body="So the sidecar can read the input from your mic when you hold the hotkey."
+        status={perms.microphone}
+        onGrant={() => window.openFlow.sidecarPermissions.requestMicrophone()}
+        paneKind="microphone"
       />
 
-      <Step
+      <PermissionStep
         title="Input Monitoring"
-        body="Needed to listen for the global hotkey, even when open-flow is not focused."
-        granted={status.inputMonitoring === 'granted'}
-        action={() => window.openFlow.permissions.openPane('inputMonitoring')}
-        openPane={() => window.openFlow.permissions.openPane('inputMonitoring')}
+        body="So the sidecar can see the hotkey when other apps are focused. macOS will open a prompt; if it doesn't, open the pane and drag the binary above into the allowed list."
+        status={perms.inputMonitoring}
+        onGrant={() => window.openFlow.sidecarPermissions.requestInputMonitoring()}
+        paneKind="inputMonitoring"
       />
 
-      <Step
+      <PermissionStep
         title="Accessibility"
-        body="Needed to paste the transcript into the app you are typing into."
-        granted={status.accessibility === 'granted'}
-        action={async () => {
-          await window.openFlow.permissions.promptAccessibility();
-          await refresh();
-        }}
-        openPane={() => window.openFlow.permissions.openPane('accessibility')}
+        body="So the sidecar can paste the transcript into the focused app. Required even though we use the clipboard."
+        status={perms.accessibility}
+        onGrant={() => window.openFlow.sidecarPermissions.promptAccessibility()}
+        paneKind="accessibility"
       />
 
       {defaultModel && (
         <ModelStep
           model={defaultModel}
-          download={download}
+          installing={installing === defaultModel.id}
+          progress={installing === defaultModel.id ? progress : null}
+          error={error}
           onStart={async () => {
-            setDownload({ kind: 'progress', id: defaultModel.id, bytesDownloaded: 0, totalBytes: 0, currentFile: '', filesDone: 0, totalFiles: 0 });
-            await window.openFlow.models.download(defaultModel.id);
+            setInstalling(defaultModel.id);
+            setProgress({ fraction: 0, message: 'Starting…' });
+            setError(null);
+            await window.openFlow.models.install(defaultModel.id);
           }}
         />
       )}
 
       <div className="row">
-        <button onClick={refresh}>Re-check</button>
+        <button onClick={() => window.openFlow.sidecarPermissions.check()}>Re-check permissions</button>
       </div>
     </div>
   );
 }
 
-function Step(props: {
+function statusLabel(status: string): string {
+  switch (status) {
+    case 'granted':
+      return '✓ granted';
+    case 'denied':
+      return '✗ denied';
+    case 'notDetermined':
+      return '— not determined';
+    case 'restricted':
+      return '✗ restricted by policy';
+    default:
+      return '— unknown';
+  }
+}
+
+function PermissionStep(props: {
   title: string;
   body: string;
-  granted: boolean;
-  action: () => void | Promise<void>;
-  openPane: () => void | Promise<unknown>;
+  status: string;
+  onGrant: () => Promise<unknown> | void;
+  paneKind: 'microphone' | 'inputMonitoring' | 'accessibility';
 }): JSX.Element {
+  const granted = props.status === 'granted';
   return (
     <div className="row">
       <div style={{ flex: 1 }}>
-        <strong>{props.title}</strong> {props.granted ? '✓ granted' : '— not granted'}
+        <strong>{props.title}</strong> {statusLabel(props.status)}
         <div style={{ opacity: 0.7 }}>{props.body}</div>
       </div>
-      <button onClick={() => void props.action()} disabled={props.granted}>
-        Grant
+      <button onClick={() => void props.onGrant()} disabled={granted}>
+        Request
       </button>
-      <button onClick={() => void props.openPane()}>Open System Settings</button>
+      <button onClick={() => window.openFlow.permissions.openPane(props.paneKind)}>
+        Open System Settings
+      </button>
     </div>
   );
 }
 
 function ModelStep(props: {
   model: ModelEntry;
-  download: DownloadMsg | null;
+  installing: boolean;
+  progress: ProgressState | null;
+  error: string | null;
   onStart: () => void | Promise<void>;
 }): JSX.Element {
-  const { model, download } = props;
-  const inFlight = download?.kind === 'progress' && download.id === model.id;
-  const errored = download?.kind === 'error' && download.id === model.id;
-  const pct =
-    inFlight && download.totalBytes > 0
-      ? Math.min(100, Math.round((download.bytesDownloaded / download.totalBytes) * 100))
-      : null;
+  const { model, installing, progress, error } = props;
+  const pct = progress ? Math.min(100, Math.round(progress.fraction * 100)) : null;
 
   return (
     <div className="row">
       <div style={{ flex: 1 }}>
-        <strong>Whisper model</strong> {model.installed ? '✓ installed' : `— ~${model.approxSizeMb} MB download`}
-        <div style={{ opacity: 0.7 }}>{model.displayName} — {model.description}</div>
-        {inFlight && (
+        <strong>Whisper model</strong>{' '}
+        {model.installed ? '✓ installed' : `— ~${model.approxSizeMb} MB download`}
+        <div style={{ opacity: 0.7 }}>
+          {model.displayName} — {model.description}
+        </div>
+        {installing && progress && (
           <div style={{ marginTop: 4 }}>
-            <div>{download.currentFile} ({download.filesDone}/{download.totalFiles}) {pct !== null ? `${pct}%` : ''}</div>
-            <progress max={download.totalBytes || 1} value={download.bytesDownloaded} />
+            <div>
+              {progress.message} {pct !== null ? `${pct}%` : ''}
+            </div>
+            <progress max={1} value={progress.fraction} />
           </div>
         )}
-        {errored && <div style={{ color: 'red', marginTop: 4 }}>{(download as { message: string }).message}</div>}
+        {error && <div style={{ color: 'red', marginTop: 4 }}>{error}</div>}
       </div>
-      <button onClick={() => void props.onStart()} disabled={model.installed || inFlight}>
-        {model.installed ? 'Installed' : inFlight ? 'Downloading…' : 'Download'}
+      <button onClick={() => void props.onStart()} disabled={model.installed || installing}>
+        {model.installed ? 'Installed' : installing ? 'Installing…' : 'Install'}
       </button>
     </div>
   );

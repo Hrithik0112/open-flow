@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Settings as SettingsT, WhisperModelId } from '@open-flow/shared';
+import { SUPPORTED_KEYS, describeRejection, labelForKeycode, lookupBrowserKey } from '../keycodes.js';
 
 interface ModelEntry {
   id: WhisperModelId;
@@ -30,6 +31,8 @@ export function Settings(): JSX.Element {
   return (
     <div className="page">
       <h1>Settings</h1>
+
+      <HotkeyRow settings={settings} onSave={save} />
 
       <div className="row">
         <label>Hotkey mode</label>
@@ -91,5 +94,85 @@ export function Settings(): JSX.Element {
         />
       </div>
     </div>
+  );
+}
+
+function HotkeyRow(props: { settings: SettingsT; onSave: (s: SettingsT) => Promise<void> }): JSX.Element {
+  const { settings, onSave } = props;
+  const [capturing, setCapturing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!capturing) return;
+    const handler = (e: KeyboardEvent): void => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.code === 'Escape') {
+        setCapturing(false);
+        setError(null);
+        return;
+      }
+      const supported = lookupBrowserKey(e.code);
+      if (!supported) {
+        setError(describeRejection(e.code).reason);
+        return;
+      }
+      void onSave({
+        ...settings,
+        hotkey: { ...settings.hotkey, keycode: supported.code, modifiers: 0 },
+      });
+      setError(null);
+      setCapturing(false);
+    };
+    window.addEventListener('keydown', handler, { capture: true });
+    return () => window.removeEventListener('keydown', handler, { capture: true });
+  }, [capturing, settings, onSave]);
+
+  const currentLabel = labelForKeycode(settings.hotkey.keycode);
+  const modifiers = Object.values(SUPPORTED_KEYS).filter((k) => k.category === 'modifier');
+  const fnKeys = Object.values(SUPPORTED_KEYS).filter((k) => k.category === 'function');
+
+  return (
+    <>
+      <div className="row">
+        <div style={{ flex: 1 }}>
+          <strong>Hotkey</strong>
+          <div style={{ opacity: 0.7 }}>
+            {capturing ? 'Press a key…  (Esc to cancel)' : `Current: ${currentLabel}`}
+          </div>
+          {error && <div style={{ color: 'red', marginTop: 4 }}>{error}</div>}
+        </div>
+        <button
+          ref={buttonRef}
+          onClick={() => {
+            setError(null);
+            setCapturing(true);
+            buttonRef.current?.blur();
+          }}
+        >
+          {capturing ? 'Listening…' : 'Change…'}
+        </button>
+        <button
+          onClick={() =>
+            void onSave({
+              ...settings,
+              hotkey: { ...settings.hotkey, keycode: 61, modifiers: 0 },
+            })
+          }
+        >
+          Reset to Right Option
+        </button>
+      </div>
+      <div className="row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+        <div style={{ opacity: 0.7 }}>
+          Allowed keys: modifiers ({modifiers.map((k) => k.label).join(', ')}) or {fnKeys.map((k) => k.label).join(', ')}.
+        </div>
+        <div style={{ opacity: 0.6 }}>
+          macOS blocks Caps Lock, Fn, brightness / volume / media keys, Mission Control, and Spotlight chords from
+          reaching open-flow. F1-F12 only work if you enable "Use F1, F2, etc. as standard function keys" in System Settings.
+        </div>
+      </div>
+    </>
   );
 }
