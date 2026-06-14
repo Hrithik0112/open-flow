@@ -1,6 +1,7 @@
 import { mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { modelsDir } from './paths.js';
+import { downloadModel as runDownload, type DownloadProgress } from './downloader.js';
 import type { WhisperModelId } from '@open-flow/shared';
 
 export interface ModelManifestEntry {
@@ -43,9 +44,12 @@ export function ensureModelsDir(): void {
   mkdirSync(modelsDir(), { recursive: true });
 }
 
-// Actual download logic is intentionally deferred. The download will pull the
-// pinned set of .mlmodelc / config files from huggingface.co/argmaxinc/whisperkit-coreml
-// and place them under modelDirFor(id). See scripts/download-model.ts.
-export async function downloadModel(_id: WhisperModelId, _onProgress?: (pct: number) => void): Promise<void> {
-  throw new Error('downloadModel is not implemented yet. See scripts/download-model.ts.');
+export type { DownloadProgress } from './downloader.js';
+
+export async function downloadModel(
+  id: WhisperModelId,
+  onProgress?: (p: DownloadProgress) => void,
+): Promise<void> {
+  ensureModelsDir();
+  await runDownload(id, modelDirFor(id), onProgress);
 }

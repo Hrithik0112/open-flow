@@ -1,4 +1,4 @@
-import { ipcMain, type IpcMainInvokeEvent } from 'electron';
+import { BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron';
 import {
   loadDictionary,
   loadSettings,
@@ -6,10 +6,15 @@ import {
   saveSettings,
   listHistory,
 } from './store.js';
-import { MODEL_MANIFEST, isModelInstalled } from './models.js';
+import {
+  MODEL_MANIFEST,
+  downloadModel,
+  isModelInstalled,
+  modelDirFor,
+} from './models.js';
 import { getStatus, openSettingsPane, promptAccessibility, requestMicrophone } from './permissions.js';
 import { openRoute } from './windows.js';
-import type { DictionaryRule, Settings } from '@open-flow/shared';
+import type { DictionaryRule, Settings, WhisperModelId } from '@open-flow/shared';
 import type { Sidecar } from './sidecar.js';
 
 export function registerRendererIpc(sidecar: Sidecar): void {
@@ -32,6 +37,22 @@ export function registerRendererIpc(sidecar: Sidecar): void {
   ipcMain.handle('models:list', () =>
     MODEL_MANIFEST.map((m) => ({ ...m, installed: isModelInstalled(m.id) })),
   );
+
+  ipcMain.handle('models:download', async (event: IpcMainInvokeEvent, id: WhisperModelId) => {
+    const sender = BrowserWindow.fromWebContents(event.sender);
+    const emit = (msg: unknown): void => {
+      sender?.webContents.send('models:download:progress', msg);
+    };
+    try {
+      await downloadModel(id, (p) => emit({ kind: 'progress', id, ...p }));
+      sidecar.send({ type: 'loadModel', modelPath: modelDirFor(id) });
+      emit({ kind: 'done', id });
+      return { ok: true } as const;
+    } catch (err) {
+      emit({ kind: 'error', id, message: (err as Error).message });
+      return { ok: false, message: (err as Error).message } as const;
+    }
+  });
 
   ipcMain.handle('permissions:status', () => getStatus());
   ipcMain.handle('permissions:requestMicrophone', () => requestMicrophone());

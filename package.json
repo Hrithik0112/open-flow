@@ -12,6 +12,7 @@
     "build:desktop": "pnpm --filter @open-flow/desktop build",
     "build": "pnpm build:sidecar && pnpm build:desktop",
     "dev": "pnpm --filter @open-flow/desktop dev",
+    "download-model": "tsx scripts/download-model.ts",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
@@ -23,6 +24,7 @@
     "@typescript-eslint/parser": "^8.0.0",
     "eslint": "^9.0.0",
     "prettier": "^3.3.0",
+    "tsx": "^4.22.4",
     "typescript": "^5.6.0"
   },
   "pnpm": {
