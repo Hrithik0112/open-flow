@@ -1,5 +1,5 @@
-import { contextBridge, ipcRenderer } from 'electron';
-import type { DictionaryRule, Settings } from '@open-flow/shared';
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
+import type { DictionaryRule, Settings, WhisperModelId } from '@open-flow/shared';
 
 const api = {
   settings: {
@@ -15,6 +15,13 @@ const api = {
   },
   models: {
     list: (): Promise<unknown[]> => ipcRenderer.invoke('models:list'),
+    download: (id: WhisperModelId): Promise<{ ok: boolean; message?: string }> =>
+      ipcRenderer.invoke('models:download', id),
+    onDownloadProgress: (fn: (msg: unknown) => void): (() => void) => {
+      const handler = (_e: IpcRendererEvent, msg: unknown): void => fn(msg);
+      ipcRenderer.on('models:download:progress', handler);
+      return () => ipcRenderer.removeListener('models:download:progress', handler);
+    },
   },
   permissions: {
     status: (): Promise<unknown> => ipcRenderer.invoke('permissions:status'),
