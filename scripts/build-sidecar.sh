@@ -19,4 +19,8 @@ mkdir -p "$OUT_DIR"
 cp "$BUILT" "$OUT_DIR/open-flow-sidecar"
 chmod +x "$OUT_DIR/open-flow-sidecar"
 
-echo "==> Sidecar copied to $OUT_DIR/open-flow-sidecar"
+# Re-apply ad-hoc signature after copy. macOS' taskgated will SIGKILL the
+# binary on launch if the signature is invalid; this keeps it valid for dev.
+codesign --force --sign - "$OUT_DIR/open-flow-sidecar"
+
+echo "==> Sidecar copied + signed at $OUT_DIR/open-flow-sidecar"

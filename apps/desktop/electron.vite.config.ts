@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin({ exclude: ['@open-flow/shared'] })],
     build: {
       rollupOptions: {
         input: resolve(__dirname, 'src/main/index.ts'),
@@ -18,7 +18,7 @@ export default defineConfig({
     },
   },
   preload: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin({ exclude: ['@open-flow/shared'] })],
     build: {
       rollupOptions: {
         input: resolve(__dirname, 'src/preload/index.ts'),

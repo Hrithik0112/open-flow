@@ -2,6 +2,7 @@ import { Menu, Tray, app, nativeImage } from 'electron';
 import { join } from 'node:path';
 
 export interface TrayCallbacks {
+  openStatus: () => void;
   openSettings: () => void;
   openHistory: () => void;
   openDictionary: () => void;
@@ -22,9 +23,12 @@ export function createTray(cb: TrayCallbacks): Tray {
 
 export function rebuild(tray: Tray, cb: TrayCallbacks): void {
   const menu = Menu.buildFromTemplate([
-    { label: 'Settings…', click: cb.openSettings },
-    { label: 'Dictionary…', click: cb.openDictionary },
-    { label: 'History…', click: cb.openHistory },
+    { label: 'Open open-flow…', click: cb.openStatus },
+    { type: 'separator' },
+    { label: 'Status & diagnostics', click: cb.openStatus },
+    { label: 'Settings', click: cb.openSettings },
+    { label: 'Dictionary', click: cb.openDictionary },
+    { label: 'History', click: cb.openHistory },
     { type: 'separator' },
     {
       label: cb.isPaused() ? 'Resume dictation' : 'Pause dictation',

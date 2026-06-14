@@ -15,12 +15,21 @@ const api = {
   },
   models: {
     list: (): Promise<unknown[]> => ipcRenderer.invoke('models:list'),
-    download: (id: WhisperModelId): Promise<{ ok: boolean; message?: string }> =>
-      ipcRenderer.invoke('models:download', id),
-    onDownloadProgress: (fn: (msg: unknown) => void): (() => void) => {
-      const handler = (_e: IpcRendererEvent, msg: unknown): void => fn(msg);
-      ipcRenderer.on('models:download:progress', handler);
-      return () => ipcRenderer.removeListener('models:download:progress', handler);
+    install: (id: WhisperModelId): Promise<boolean> => ipcRenderer.invoke('models:install', id),
+    onProgress: (fn: (msg: { fraction: number; message: string }) => void): (() => void) => {
+      const handler = (_e: IpcRendererEvent, msg: { fraction: number; message: string }): void => fn(msg);
+      ipcRenderer.on('model:progress', handler);
+      return () => ipcRenderer.removeListener('model:progress', handler);
+    },
+    onLoaded: (fn: (msg: { name: string }) => void): (() => void) => {
+      const handler = (_e: IpcRendererEvent, msg: { name: string }): void => fn(msg);
+      ipcRenderer.on('model:loaded', handler);
+      return () => ipcRenderer.removeListener('model:loaded', handler);
+    },
+    onError: (fn: (msg: { code: string; message: string }) => void): (() => void) => {
+      const handler = (_e: IpcRendererEvent, msg: { code: string; message: string }): void => fn(msg);
+      ipcRenderer.on('model:error', handler);
+      return () => ipcRenderer.removeListener('model:error', handler);
     },
   },
   permissions: {
@@ -30,9 +39,72 @@ const api = {
     openPane: (kind: 'microphone' | 'inputMonitoring' | 'accessibility'): Promise<boolean> =>
       ipcRenderer.invoke('permissions:openPane', kind),
   },
+  sidecarPermissions: {
+    check: (): Promise<boolean> => ipcRenderer.invoke('sidecar:permissions:check'),
+    requestMicrophone: (): Promise<boolean> =>
+      ipcRenderer.invoke('sidecar:permissions:requestMicrophone'),
+    requestInputMonitoring: (): Promise<boolean> =>
+      ipcRenderer.invoke('sidecar:permissions:requestInputMonitoring'),
+    promptAccessibility: (): Promise<boolean> =>
+      ipcRenderer.invoke('sidecar:permissions:promptAccessibility'),
+    onUpdate: (
+      fn: (msg: {
+        microphone: string;
+        inputMonitoring: string;
+        accessibility: string;
+        binaryPath: string;
+      }) => void,
+    ): (() => void) => {
+      const handler = (
+        _e: IpcRendererEvent,
+        msg: {
+          microphone: string;
+          inputMonitoring: string;
+          accessibility: string;
+          binaryPath: string;
+        },
+      ): void => fn(msg);
+      ipcRenderer.on('sidecar:permissions', handler);
+      return () => ipcRenderer.removeListener('sidecar:permissions', handler);
+    },
+  },
   window: {
-    open: (route: 'onboarding' | 'settings' | 'dictionary' | 'history'): Promise<boolean> =>
+    open: (route: 'status' | 'onboarding' | 'settings' | 'dictionary' | 'history'): Promise<boolean> =>
       ipcRenderer.invoke('window:open', route),
+  },
+  app: {
+    onNavigate: (
+      fn: (msg: { route: 'status' | 'onboarding' | 'settings' | 'dictionary' | 'history' }) => void,
+    ): (() => void) => {
+      const handler = (
+        _e: IpcRendererEvent,
+        msg: { route: 'status' | 'onboarding' | 'settings' | 'dictionary' | 'history' },
+      ): void => fn(msg);
+      ipcRenderer.on('app:navigate', handler);
+      return () => ipcRenderer.removeListener('app:navigate', handler);
+    },
+  },
+  hotkey: {
+    onEvent: (fn: (msg: { kind: 'pressed' | 'released'; at: number }) => void): (() => void) => {
+      const handler = (
+        _e: IpcRendererEvent,
+        msg: { kind: 'pressed' | 'released'; at: number },
+      ): void => fn(msg);
+      ipcRenderer.on('hotkey:event', handler);
+      return () => ipcRenderer.removeListener('hotkey:event', handler);
+    },
+  },
+  hud: {
+    onState: (fn: (msg: { state: 'recording' | 'transcribing' }) => void): (() => void) => {
+      const handler = (_e: IpcRendererEvent, msg: { state: 'recording' | 'transcribing' }): void => fn(msg);
+      ipcRenderer.on('hud:state', handler);
+      return () => ipcRenderer.removeListener('hud:state', handler);
+    },
+    onLevels: (fn: (msg: { rms: number }) => void): (() => void) => {
+      const handler = (_e: IpcRendererEvent, msg: { rms: number }): void => fn(msg);
+      ipcRenderer.on('hud:levels', handler);
+      return () => ipcRenderer.removeListener('hud:levels', handler);
+    },
   },
 };
 

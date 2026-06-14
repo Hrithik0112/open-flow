@@ -1,20 +1,85 @@
 import Foundation
 import WhisperKit
 
+actor LoadLock {
+    private var inFlight = false
+    func acquire() -> Bool {
+        if inFlight { return false }
+        inFlight = true
+        return true
+    }
+    func release() { inFlight = false }
+}
+
 final class Transcriber {
     private var pipe: WhisperKit?
-    private var modelPath: String = ""
     private var dictionary: [DictionaryRule] = []
+    private var lastProgressReported: Double = -1
+    private let loadLock = LoadLock()
 
     func setDictionary(_ rules: [DictionaryRule]) {
         self.dictionary = rules
     }
 
-    func loadModel(at path: String) async throws {
-        self.modelPath = path
-        // WhisperKit can load a model folder via modelFolder; we point at the unpacked package.
-        self.pipe = try await WhisperKit(WhisperKitConfig(modelFolder: path, load: true))
-        Logger.log("model loaded: \(path)")
+    func loadModel(name: String, downloadBase: String) async throws {
+        guard await loadLock.acquire() else {
+            Logger.log("loadModel skipped: another load is in flight")
+            return
+        }
+        defer { Task { await loadLock.release() } }
+
+        let baseURL = URL(fileURLWithPath: downloadBase)
+        Logger.log("loadModel name=\(name) downloadBase=\(baseURL.path)")
+
+        // Clean any stale partial-download staging area to avoid moved-source errors.
+        let stagingURL = baseURL
+            .appendingPathComponent("models")
+            .appendingPathComponent("argmaxinc")
+            .appendingPathComponent("whisperkit-coreml")
+            .appendingPathComponent(".cache")
+        if FileManager.default.fileExists(atPath: stagingURL.path) {
+            try? FileManager.default.removeItem(at: stagingURL)
+            Logger.log("removed stale staging: \(stagingURL.path)")
+        }
+
+        // 1. Download (or refresh) with progress callback.
+        lastProgressReported = -1
+        IPC.send(.modelProgress(fraction: 0, message: "Starting download"))
+        let modelURL = try await WhisperKit.download(
+            variant: name,
+            downloadBase: baseURL,
+            useBackgroundSession: false,
+            from: "argmaxinc/whisperkit-coreml",
+            token: nil
+        ) { [weak self] progress in
+            self?.reportDownloadProgress(progress)
+        }
+
+        Logger.log("download complete -> \(modelURL.path)")
+        IPC.send(.modelProgress(fraction: 1.0, message: "Loading model"))
+
+        // 2. Load from the resolved folder.
+        let config = WhisperKitConfig(
+            modelFolder: modelURL.path,
+            verbose: false,
+            prewarm: true,
+            load: true,
+            download: false
+        )
+        self.pipe = try await WhisperKit(config)
+        Logger.log("model loaded")
+        IPC.send(.modelLoaded(name: name))
+    }
+
+    private func reportDownloadProgress(_ progress: Progress) {
+        let fraction = progress.fractionCompleted
+        // Throttle to ~50 events across the download.
+        if fraction - lastProgressReported < 0.02 && fraction < 1.0 {
+            return
+        }
+        lastProgressReported = fraction
+        let message = progress.localizedDescription ?? "Downloading…"
+        IPC.send(.modelProgress(fraction: fraction, message: message))
     }
 
     struct Result {
@@ -51,7 +116,6 @@ final class Transcriber {
             options.insert(.caseInsensitive)
         }
         if rule.wholeWord {
-            // Manual whole-word loop because NSString options don't include word boundaries.
             return wholeWordReplace(text: text, from: rule.from, to: rule.to, caseSensitive: rule.caseSensitive)
         }
         return text.replacingOccurrences(of: rule.from, with: rule.to, options: options, range: nil)
@@ -65,3 +129,4 @@ final class Transcriber {
         return regex.stringByReplacingMatches(in: text, options: [], range: range, withTemplate: NSRegularExpression.escapedTemplate(for: to))
     }
 }
+
