@@ -20,7 +20,13 @@ export function Layout(props: { route: Route; onNavigate: (r: Route) => void; ch
   return (
     <div className="app-shell">
       <aside className="app-sidebar">
-        <div className="app-sidebar-title">open-flow</div>
+        <div className="app-sidebar-brand">
+          <span className="app-sidebar-mark" />
+          <div>
+            <div className="app-sidebar-title">open-flow</div>
+            <div className="app-sidebar-subtitle">Local dictation</div>
+          </div>
+        </div>
         <nav>
           {ITEMS.map((item) => (
             <button

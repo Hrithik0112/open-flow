@@ -29,60 +29,69 @@ export function Dictionary(): JSX.Element {
   }
 
   return (
-    <div className="page">
-      <h1>Dictionary</h1>
-      <p>Replace words or phrases in your transcripts. Applied left-to-right after Whisper output.</p>
-      <table>
-        <thead>
-          <tr>
-            <th>From</th>
-            <th>To</th>
-            <th>Case</th>
-            <th>Whole word</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {rules.map((rule, i) => (
-            <tr key={i}>
-              <td>
-                <input
-                  type="text"
-                  value={rule.from}
-                  onChange={(e) => updateRow(i, { from: e.target.value })}
-                />
-              </td>
-              <td>
-                <input
-                  type="text"
-                  value={rule.to}
-                  onChange={(e) => updateRow(i, { to: e.target.value })}
-                />
-              </td>
-              <td>
-                <input
-                  type="checkbox"
-                  checked={rule.caseSensitive}
-                  onChange={(e) => updateRow(i, { caseSensitive: e.target.checked })}
-                />
-              </td>
-              <td>
-                <input
-                  type="checkbox"
-                  checked={rule.wholeWord}
-                  onChange={(e) => updateRow(i, { wholeWord: e.target.checked })}
-                />
-              </td>
-              <td>
-                <button onClick={() => removeRow(i)}>Remove</button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <div className="row">
+    <div className="page page-dictionary">
+      <div className="page-header-row">
+        <div>
+          <div className="eyebrow">Dictionary</div>
+          <h1>Clean up words.</h1>
+          <p className="page-subtitle">Replace phrases after transcription.</p>
+        </div>
         <button onClick={addRow}>Add rule</button>
       </div>
+      {rules.length === 0 ? (
+        <div className="empty-panel">No replacement rules yet.</div>
+      ) : (
+        <div className="table-panel">
+          <table>
+            <thead>
+              <tr>
+                <th>From</th>
+                <th>To</th>
+                <th>Case</th>
+                <th>Whole word</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {rules.map((rule, i) => (
+                <tr key={i}>
+                  <td>
+                    <input
+                      type="text"
+                      value={rule.from}
+                      onChange={(e) => updateRow(i, { from: e.target.value })}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="text"
+                      value={rule.to}
+                      onChange={(e) => updateRow(i, { to: e.target.value })}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={rule.caseSensitive}
+                      onChange={(e) => updateRow(i, { caseSensitive: e.target.checked })}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={rule.wholeWord}
+                      onChange={(e) => updateRow(i, { wholeWord: e.target.checked })}
+                    />
+                  </td>
+                  <td>
+                    <button onClick={() => removeRow(i)}>Remove</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

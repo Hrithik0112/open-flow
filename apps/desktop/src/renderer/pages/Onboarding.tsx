@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { type CSSProperties, useEffect, useState } from 'react';
 import type { WhisperModelId } from '@open-flow/shared';
 
 interface ModelEntry {
@@ -61,48 +61,59 @@ export function Onboarding(): JSX.Element {
     };
   }, []);
 
-  if (!perms) return <div className="page">Checking permissions…</div>;
+  if (!perms) return <div className="page page-onboarding">Checking setup...</div>;
 
   const defaultModel = models.find((m) => m.id === 'openai_whisper-base.en');
+  const grantedCount = [perms.microphone, perms.inputMonitoring, perms.accessibility].filter(
+    (status) => status === 'granted',
+  ).length;
+  const completedSteps = grantedCount + (defaultModel?.installed ? 1 : 0);
+  const setupComplete = completedSteps === 4;
+  const ringStyle = { '--setup-progress': `${completedSteps * 25}%` } as CSSProperties;
 
   return (
-    <div className="page">
-      <h1>Welcome to open-flow</h1>
-      <p>
-        open-flow needs three macOS permissions and one Whisper model. Permissions are granted{' '}
-        <strong>per binary</strong>, and the binary that does the recording / hotkey / paste work is
-        the sidecar process listed below. macOS will not auto-prompt for Input Monitoring; you must
-        add the binary in System Settings.
-      </p>
+    <div className="page page-onboarding">
+      <section className="onboarding-hero">
+        <div>
+          <div className="eyebrow">Setup</div>
+          <h1>Make dictation feel invisible.</h1>
+          <p>Grant access, install the local model, then hold Option and speak.</p>
+        </div>
+        <div className={`setup-ring ${setupComplete ? 'is-complete' : ''}`} style={ringStyle}>
+          <span>{completedSteps}/4</span>
+        </div>
+      </section>
 
-      <div className="row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
-        <strong>Sidecar binary</strong>
-        <code style={{ wordBreak: 'break-all', opacity: 0.75 }}>{perms.binaryPath}</code>
+      <div className="onboarding-path">
+        <span>Sidecar</span>
+        <code>{perms.binaryPath}</code>
       </div>
 
-      <PermissionStep
-        title="Microphone"
-        body="So the sidecar can read the input from your mic when you hold the hotkey."
-        status={perms.microphone}
-        onGrant={() => window.openFlow.sidecarPermissions.requestMicrophone()}
-        paneKind="microphone"
-      />
+      <section className="setup-grid">
+        <PermissionStep
+          title="Microphone"
+          body="Record while the hotkey is held."
+          status={perms.microphone}
+          onGrant={() => window.openFlow.sidecarPermissions.requestMicrophone()}
+          paneKind="microphone"
+        />
 
-      <PermissionStep
-        title="Input Monitoring"
-        body="So the sidecar can see the hotkey when other apps are focused. macOS will open a prompt; if it doesn't, open the pane and drag the binary above into the allowed list."
-        status={perms.inputMonitoring}
-        onGrant={() => window.openFlow.sidecarPermissions.requestInputMonitoring()}
-        paneKind="inputMonitoring"
-      />
+        <PermissionStep
+          title="Input Monitoring"
+          body="Catch the hotkey from any app."
+          status={perms.inputMonitoring}
+          onGrant={() => window.openFlow.sidecarPermissions.requestInputMonitoring()}
+          paneKind="inputMonitoring"
+        />
 
-      <PermissionStep
-        title="Accessibility"
-        body="So the sidecar can paste the transcript into the focused app. Required even though we use the clipboard."
-        status={perms.accessibility}
-        onGrant={() => window.openFlow.sidecarPermissions.promptAccessibility()}
-        paneKind="accessibility"
-      />
+        <PermissionStep
+          title="Accessibility"
+          body="Paste text back into focus."
+          status={perms.accessibility}
+          onGrant={() => window.openFlow.sidecarPermissions.promptAccessibility()}
+          paneKind="accessibility"
+        />
+      </section>
 
       {defaultModel && (
         <ModelStep
@@ -119,8 +130,9 @@ export function Onboarding(): JSX.Element {
         />
       )}
 
-      <div className="row">
-        <button onClick={() => window.openFlow.sidecarPermissions.check()}>Re-check permissions</button>
+      <div className="onboarding-footer">
+        <button onClick={() => window.openFlow.sidecarPermissions.check()}>Re-check</button>
+        <span>{setupComplete ? 'Ready for dictation.' : 'System Settings may need a manual toggle.'}</span>
       </div>
     </div>
   );
@@ -129,15 +141,15 @@ export function Onboarding(): JSX.Element {
 function statusLabel(status: string): string {
   switch (status) {
     case 'granted':
-      return '✓ granted';
+      return 'Granted';
     case 'denied':
-      return '✗ denied';
+      return 'Denied';
     case 'notDetermined':
-      return '— not determined';
+      return 'Not set';
     case 'restricted':
-      return '✗ restricted by policy';
+      return 'Restricted';
     default:
-      return '— unknown';
+      return 'Unknown';
   }
 }
 
@@ -150,18 +162,20 @@ function PermissionStep(props: {
 }): JSX.Element {
   const granted = props.status === 'granted';
   return (
-    <div className="row">
-      <div style={{ flex: 1 }}>
-        <strong>{props.title}</strong> {statusLabel(props.status)}
-        <div style={{ opacity: 0.7 }}>{props.body}</div>
+    <article className="setup-card">
+      <div className="setup-card-top">
+        <span className={`status-dot ${granted ? 'is-granted' : ''}`} />
+        <span className={`status-text ${granted ? 'is-granted' : ''}`}>{statusLabel(props.status)}</span>
       </div>
-      <button onClick={() => void props.onGrant()} disabled={granted}>
-        Request
-      </button>
-      <button onClick={() => window.openFlow.permissions.openPane(props.paneKind)}>
-        Open System Settings
-      </button>
-    </div>
+      <h2>{props.title}</h2>
+      <p>{props.body}</p>
+      <div className="setup-actions">
+        <button onClick={() => void props.onGrant()} disabled={granted}>
+          {granted ? 'Done' : 'Request'}
+        </button>
+        <button onClick={() => window.openFlow.permissions.openPane(props.paneKind)}>Settings</button>
+      </div>
+    </article>
   );
 }
 
@@ -176,26 +190,28 @@ function ModelStep(props: {
   const pct = progress ? Math.min(100, Math.round(progress.fraction * 100)) : null;
 
   return (
-    <div className="row">
-      <div style={{ flex: 1 }}>
-        <strong>Whisper model</strong>{' '}
-        {model.installed ? '✓ installed' : `— ~${model.approxSizeMb} MB download`}
-        <div style={{ opacity: 0.7 }}>
-          {model.displayName} — {model.description}
-        </div>
+    <section className="model-panel">
+      <div>
+        <div className="eyebrow">Local speech model</div>
+        <h2>{model.displayName}</h2>
+        <p>
+          {model.installed
+            ? 'Installed and ready.'
+            : `One-time download, about ${model.approxSizeMb} MB.`}
+        </p>
         {installing && progress && (
-          <div style={{ marginTop: 4 }}>
-            <div>
+          <div className="model-progress">
+            <div className="small">
               {progress.message} {pct !== null ? `${pct}%` : ''}
             </div>
             <progress max={1} value={progress.fraction} />
           </div>
         )}
-        {error && <div style={{ color: 'red', marginTop: 4 }}>{error}</div>}
+        {error && <div className="error small">{error}</div>}
       </div>
       <button onClick={() => void props.onStart()} disabled={model.installed || installing}>
         {model.installed ? 'Installed' : installing ? 'Installing…' : 'Install'}
       </button>
-    </div>
+    </section>
   );
 }

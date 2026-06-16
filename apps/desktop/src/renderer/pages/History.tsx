@@ -59,9 +59,13 @@ export function History(): JSX.Element {
   }
 
   return (
-    <div className="page">
+    <div className="page page-history">
       <div className="page-header-row">
-        <h1>History</h1>
+        <div>
+          <div className="eyebrow">History</div>
+          <h1>Past dictations.</h1>
+          <p className="page-subtitle">{rows.length} saved locally.</p>
+        </div>
         {rows.length > 0 && (
           <button disabled={selectedCount === 0} onClick={() => void deleteRows([...selectedIds])}>
             Delete selected{selectedCount > 0 ? ` (${selectedCount})` : ''}
@@ -69,48 +73,50 @@ export function History(): JSX.Element {
         )}
       </div>
       {rows.length === 0 ? (
-        <p>No dictations yet.</p>
+        <div className="empty-panel">No dictations yet.</div>
       ) : (
-        <table>
-          <thead>
-            <tr>
-              <th>
-                <input
-                  type="checkbox"
-                  aria-label="Select all history items"
-                  checked={allVisibleSelected}
-                  onChange={toggleAllVisible}
-                />
-              </th>
-              <th>When</th>
-              <th>Text</th>
-              <th>App</th>
-              <th>Took</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.id}>
-                <td>
+        <div className="table-panel">
+          <table>
+            <thead>
+              <tr>
+                <th>
                   <input
                     type="checkbox"
-                    aria-label={`Select history item from ${new Date(row.timestamp).toLocaleString()}`}
-                    checked={selectedIds.has(row.id)}
-                    onChange={() => toggleSelected(row.id)}
+                    aria-label="Select all history items"
+                    checked={allVisibleSelected}
+                    onChange={toggleAllVisible}
                   />
-                </td>
-                <td>{new Date(row.timestamp).toLocaleString()}</td>
-                <td>{row.finalText}</td>
-                <td>{row.bundleId ?? '—'}</td>
-                <td>{row.durationMs} ms</td>
-                <td>
-                  <button onClick={() => void deleteRows([row.id])}>Delete</button>
-                </td>
+                </th>
+                <th>When</th>
+                <th>Text</th>
+                <th>App</th>
+                <th>Took</th>
+                <th></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.id}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      aria-label={`Select history item from ${new Date(row.timestamp).toLocaleString()}`}
+                      checked={selectedIds.has(row.id)}
+                      onChange={() => toggleSelected(row.id)}
+                    />
+                  </td>
+                  <td>{new Date(row.timestamp).toLocaleString()}</td>
+                  <td>{row.finalText}</td>
+                  <td>{row.bundleId ?? '—'}</td>
+                  <td>{row.durationMs} ms</td>
+                  <td>
+                    <button onClick={() => void deleteRows([row.id])}>Delete</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
