@@ -12,6 +12,7 @@ const api = {
   },
   history: {
     list: (limit?: number): Promise<unknown[]> => ipcRenderer.invoke('history:list', limit),
+    delete: (ids: number[]): Promise<number> => ipcRenderer.invoke('history:delete', ids),
   },
   models: {
     list: (): Promise<unknown[]> => ipcRenderer.invoke('models:list'),

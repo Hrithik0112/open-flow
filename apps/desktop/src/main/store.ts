@@ -100,6 +100,17 @@ export function listHistory(limit = 100): HistoryRow[] {
   return rows as HistoryRow[];
 }
 
+export function deleteHistory(ids: number[]): number {
+  const uniqueIds = [...new Set(ids.filter((id) => Number.isInteger(id) && id > 0))];
+  if (uniqueIds.length === 0) return 0;
+
+  const placeholders = uniqueIds.map(() => '?').join(', ');
+  const result = getDb()
+    .prepare(`DELETE FROM history WHERE id IN (${placeholders})`)
+    .run(...uniqueIds);
+  return result.changes;
+}
+
 export function closeDb(): void {
   if (db) {
     db.close();

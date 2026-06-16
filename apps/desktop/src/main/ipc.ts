@@ -4,6 +4,7 @@ import {
   loadSettings,
   saveDictionary,
   saveSettings,
+  deleteHistory,
   listHistory,
 } from './store.js';
 import { MODEL_MANIFEST, downloadBase, isModelInstalled } from './models.js';
@@ -28,6 +29,7 @@ export function registerRendererIpc(sidecar: Sidecar): void {
   });
 
   ipcMain.handle('history:list', (_e: IpcMainInvokeEvent, limit?: number) => listHistory(limit));
+  ipcMain.handle('history:delete', (_e: IpcMainInvokeEvent, ids: number[]) => deleteHistory(ids));
 
   ipcMain.handle('models:list', () =>
     MODEL_MANIFEST.map((m) => ({ ...m, installed: isModelInstalled(m.id) })),
