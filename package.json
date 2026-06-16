@@ -10,8 +10,10 @@
   "scripts": {
     "build:sidecar": "bash scripts/build-sidecar.sh",
     "build:desktop": "pnpm --filter @open-flow/desktop build",
-    "build": "pnpm build:sidecar && pnpm build:desktop",
+    "build:landing": "pnpm --filter @open-flow/landing build",
+    "build": "pnpm build:sidecar && pnpm build:desktop && pnpm build:landing",
     "dev": "pnpm --filter @open-flow/desktop dev",
+    "dev:landing": "pnpm --filter @open-flow/landing dev",
     "rebuild:native": "electron-rebuild --module-dir apps/desktop",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
