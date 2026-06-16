@@ -21,7 +21,7 @@ export function Settings(): JSX.Element {
     })();
   }, []);
 
-  if (!settings) return <div className="page">Loading…</div>;
+  if (!settings) return <div className="page page-settings">Loading...</div>;
 
   async function save(next: SettingsT): Promise<void> {
     setSettings(next);
@@ -29,13 +29,20 @@ export function Settings(): JSX.Element {
   }
 
   return (
-    <div className="page">
-      <h1>Settings</h1>
+    <div className="page page-settings">
+      <div className="page-title-block">
+        <div className="eyebrow">Settings</div>
+        <h1>Tune the flow.</h1>
+        <p>Keep the defaults, or adjust how dictation starts and where it saves.</p>
+      </div>
 
       <HotkeyRow settings={settings} onSave={save} />
 
-      <div className="row">
-        <label>Hotkey mode</label>
+      <div className="settings-card">
+        <label>
+          <span>Hotkey mode</span>
+          <small>Hold to talk, or toggle recording on and off.</small>
+        </label>
         <select
           value={settings.hotkey.mode}
           onChange={(e) =>
@@ -50,8 +57,11 @@ export function Settings(): JSX.Element {
         </select>
       </div>
 
-      <div className="row">
-        <label>Whisper model</label>
+      <div className="settings-card">
+        <label>
+          <span>Whisper model</span>
+          <small>Local transcription model used by the sidecar.</small>
+        </label>
         <select
           value={settings.model}
           onChange={(e) => void save({ ...settings, model: e.target.value as WhisperModelId })}
@@ -64,8 +74,11 @@ export function Settings(): JSX.Element {
         </select>
       </div>
 
-      <div className="row">
-        <label>Max recording length (seconds)</label>
+      <div className="settings-card">
+        <label>
+          <span>Max recording length</span>
+          <small>Stops runaway recordings automatically.</small>
+        </label>
         <input
           type="text"
           value={String(settings.maxRecordingSeconds)}
@@ -76,8 +89,11 @@ export function Settings(): JSX.Element {
         />
       </div>
 
-      <div className="row">
-        <label>Save dictation history</label>
+      <div className="settings-card settings-card-compact">
+        <label>
+          <span>Save history</span>
+          <small>Keep past dictations locally.</small>
+        </label>
         <input
           type="checkbox"
           checked={settings.historyEnabled}
@@ -85,8 +101,11 @@ export function Settings(): JSX.Element {
         />
       </div>
 
-      <div className="row">
-        <label>Show recording HUD while dictating</label>
+      <div className="settings-card settings-card-compact">
+        <label>
+          <span>Recording HUD</span>
+          <small>Show a small overlay while listening.</small>
+        </label>
         <input
           type="checkbox"
           checked={settings.showRecordingHud}
@@ -135,14 +154,14 @@ function HotkeyRow(props: { settings: SettingsT; onSave: (s: SettingsT) => Promi
 
   return (
     <>
-      <div className="row">
-        <div style={{ flex: 1 }}>
-          <strong>Hotkey</strong>
-          <div style={{ opacity: 0.7 }}>
+      <div className="settings-card">
+        <label>
+          <span>Hotkey</span>
+          <small>
             {capturing ? 'Press a key…  (Esc to cancel)' : `Current: ${currentLabel}`}
-          </div>
-          {error && <div style={{ color: 'red', marginTop: 4 }}>{error}</div>}
-        </div>
+          </small>
+          {error && <small className="error">{error}</small>}
+        </label>
         <button
           ref={buttonRef}
           onClick={() => {
@@ -161,17 +180,12 @@ function HotkeyRow(props: { settings: SettingsT; onSave: (s: SettingsT) => Promi
             })
           }
         >
-          Reset to Right Option
+          Reset
         </button>
       </div>
-      <div className="row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
-        <div style={{ opacity: 0.7 }}>
-          Allowed keys: modifiers ({modifiers.map((k) => k.label).join(', ')}) or {fnKeys.map((k) => k.label).join(', ')}.
-        </div>
-        <div style={{ opacity: 0.6 }}>
-          macOS blocks Caps Lock, Fn, brightness / volume / media keys, Mission Control, and Spotlight chords from
-          reaching open-flow. F1-F12 only work if you enable "Use F1, F2, etc. as standard function keys" in System Settings.
-        </div>
+      <div className="settings-note">
+        Modifiers ({modifiers.map((k) => k.label).join(', ')}) and {fnKeys.map((k) => k.label).join(', ')} are supported.
+        Some system keys are reserved by macOS.
       </div>
     </>
   );

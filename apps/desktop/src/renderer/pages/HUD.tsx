@@ -40,13 +40,15 @@ export function HUD(): JSX.Element {
   }, []);
 
   const meterWidth = Math.min(100, Math.round(Math.sqrt(smoothedRms) * 220));
+  const label = state === 'recording' ? 'Listening' : 'Transcribing';
 
   return (
     <div className="hud-root">
       <div className="hud-card">
         <div className="hud-dot" data-state={state} />
         <div className="hud-content">
-          <div className="hud-label">{state === 'recording' ? 'Listening' : 'Transcribing…'}</div>
+          <div className="hud-kicker">open-flow</div>
+          <div className="hud-label">{label}</div>
           {state === 'recording' && (
             <div className="hud-meter">
               <div className="hud-meter-fill" style={{ width: `${meterWidth}%` }} />

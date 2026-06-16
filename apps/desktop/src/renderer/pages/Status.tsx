@@ -68,31 +68,44 @@ export function Status(): JSX.Element {
 
   return (
     <div className="page page-status">
-      <h1>Status</h1>
+      <div className="page-title-block">
+        <div className="eyebrow">Status</div>
+        <h1>Ready check.</h1>
+        <p>Hotkey, permissions, and local model health at a glance.</p>
+      </div>
 
-      <section className="card">
-        <div className="card-row">
-          <strong>Hotkey events</strong>
+      <section className="status-grid">
+        <div className="status-tile">
+          <div className="eyebrow">Hotkey</div>
+          <strong>{hotkeyLabel}</strong>
           <span className={`pill ${hotkeyState === 'pressed' ? 'pill-active' : sinceLastHotkey !== null ? 'pill-ok' : 'pill-warn'}`}>
             {hotkeyState === 'pressed'
-              ? 'Hotkey held now'
+              ? 'Held now'
               : sinceLastHotkey !== null
-                ? `Last event ${sinceLastHotkey}s ago`
-                : 'Never seen'}
+                ? `${sinceLastHotkey}s ago`
+                : 'No events'}
           </span>
         </div>
-        <div className="muted">
-          Current binding: <strong>{hotkeyLabel}</strong>. Hold it in any app to dictate. If "Never seen"
-          stays put after pressing the hotkey, the sidecar isn't receiving events — see the recipe below.
+        <div className="status-tile">
+          <div className="eyebrow">Permissions</div>
+          <strong>{allGranted ? 'All granted' : 'Needs attention'}</strong>
+          <span className={`pill ${allGranted ? 'pill-ok' : 'pill-warn'}`}>
+            {perms ? `${[perms.microphone, perms.inputMonitoring, perms.accessibility].filter((p) => p === 'granted').length}/3` : 'Checking'}
+          </span>
+        </div>
+        <div className="status-tile">
+          <div className="eyebrow">Model</div>
+          <strong>{installedModel?.displayName ?? 'Whisper'}</strong>
+          <span className={`pill ${installedModel?.installed ? 'pill-ok' : 'pill-warn'}`}>
+            {installedModel?.installed ? 'Installed' : 'Missing'}
+          </span>
         </div>
       </section>
 
-      <section className="card">
+      <section className="card compact-card">
         <div className="card-row">
           <strong>Sidecar permissions</strong>
-          {perms && (
-            <button onClick={() => window.openFlow.sidecarPermissions.check()}>Re-check</button>
-          )}
+          {perms && <button onClick={() => window.openFlow.sidecarPermissions.check()}>Re-check</button>}
         </div>
         {perms ? (
           <>
@@ -118,7 +131,7 @@ export function Status(): JSX.Element {
               paneKind="accessibility"
             />
             <div className="muted small">
-              Granted to binary:
+              Binary
               <code className="path-pill">{perms.binaryPath}</code>
             </div>
           </>
@@ -127,38 +140,20 @@ export function Status(): JSX.Element {
         )}
       </section>
 
-      <section className="card">
-        <div className="card-row">
-          <strong>Whisper model</strong>
-          <span className={`pill ${installedModel?.installed ? 'pill-ok' : 'pill-warn'}`}>
-            {installedModel?.installed ? `${installedModel.displayName} ✓` : 'Not installed'}
-          </span>
-        </div>
-        {error && <div className="error">{error}</div>}
-      </section>
+      {error && (
+        <section className="card compact-card card-warning">
+          <strong>Model error</strong>
+          <div className="error small">{error}</div>
+        </section>
+      )}
 
       {!allGranted && (
-        <section className="card card-warning">
-          <strong>Why this isn't working yet</strong>
-          <ol className="muted small">
-            <li>
-              <strong>Accessibility denied:</strong> open System Settings → Privacy &amp; Security → Accessibility,
-              click <em>+</em>, navigate to the sidecar binary path above, and toggle it on. Pasting the transcript
-              into the focused app requires this.
-            </li>
-            <li>
-              <strong>Microphone not determined:</strong> click "Request" above. macOS may not show a banner for a
-              non-bundled CLI binary; if it doesn't, open System Settings → Privacy &amp; Security → Microphone and
-              add the sidecar binary manually.
-            </li>
-            <li>
-              <strong>Hotkey "granted" but no events arriving (TCC + signature mismatch):</strong>
-              every time the sidecar is rebuilt its code signature changes, so even a previously-granted Input
-              Monitoring entry stops delivering events. Open System Settings → Privacy &amp; Security → Input
-              Monitoring, <em>remove</em> the open-flow-sidecar entry, then add the binary back from the path above
-              and toggle it on. Restart <code>pnpm dev</code>.
-            </li>
-          </ol>
+        <section className="card compact-card card-warning">
+          <strong>Still blocked?</strong>
+          <p className="muted small">
+            Re-add the sidecar binary in Input Monitoring or Accessibility after rebuilds. macOS ties
+            permission grants to the signed binary path.
+          </p>
         </section>
       )}
     </div>
@@ -184,7 +179,7 @@ function PermRow(props: {
           {props.actionLabel}
         </button>
         <button onClick={() => window.openFlow.permissions.openPane(props.paneKind)}>
-          Open System Settings
+          Settings
         </button>
       </div>
     </div>
