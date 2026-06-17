@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import packageJson from '../../package.json';
 
 export type Route = 'status' | 'onboarding' | 'settings' | 'dictionary' | 'history';
 
@@ -39,6 +40,9 @@ export function Layout(props: { route: Route; onNavigate: (r: Route) => void; ch
             </button>
           ))}
         </nav>
+        <div className="app-sidebar-version" aria-label={`App version ${packageJson.version}`}>
+          Version {packageJson.version}
+        </div>
       </aside>
       <main className="app-content">{props.children}</main>
     </div>
