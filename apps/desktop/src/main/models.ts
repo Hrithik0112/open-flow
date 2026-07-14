@@ -45,15 +45,20 @@ export function modelDirFor(id: WhisperModelId): string {
   return join(modelsDir(), 'argmaxinc', 'whisperkit-coreml', id);
 }
 
+const REQUIRED_MODEL_ENTRIES = [
+  'AudioEncoder.mlmodelc',
+  'TextDecoder.mlmodelc',
+  'MelSpectrogram.mlmodelc',
+  'config.json',
+  'generation_config.json',
+];
+
 export function isModelInstalled(id: WhisperModelId): boolean {
   const dir = modelDirFor(id);
   if (!existsSync(dir)) return false;
-  // Require the three .mlmodelc folders. If any are missing, treat as not installed.
-  return (
-    existsSync(join(dir, 'AudioEncoder.mlmodelc')) &&
-    existsSync(join(dir, 'TextDecoder.mlmodelc')) &&
-    existsSync(join(dir, 'MelSpectrogram.mlmodelc'))
-  );
+  // WhisperKit can leave a partial folder after an interrupted download. Require
+  // the model bundles and configuration files before allowing startup load.
+  return REQUIRED_MODEL_ENTRIES.every((entry) => existsSync(join(dir, entry)));
 }
 
 export function ensureModelsDir(): void {
