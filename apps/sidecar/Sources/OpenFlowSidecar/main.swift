@@ -119,8 +119,17 @@ final class App {
         do {
             try await transcriber.loadModel(name: name, downloadBase: downloadBase)
         } catch {
-            IPC.send(.error(code: "model.loadFailed", message: String(describing: error)))
+            IPC.send(.error(code: "model.loadFailed", message: describe(error)))
         }
+    }
+
+    private func describe(_ error: Error) -> String {
+        let nsError = error as NSError
+        var message = nsError.localizedDescription
+        if let suggestion = nsError.localizedRecoverySuggestion, !suggestion.isEmpty {
+            message += " \(suggestion)"
+        }
+        return message
     }
 
     private func onHotkey(pressed: Bool) {
