@@ -1,40 +1,62 @@
 # open-flow
 
-open-flow is a local-first macOS dictation app.
+open-flow is a local-first macOS dictation app. Hold a hotkey, speak, and release to paste the transcript into the text field you were already using. Speech is transcribed on your Mac with WhisperKit, without sending audio to a cloud transcription API.
 
-Hold a hotkey, speak, release, and the transcript is pasted into the field you were already typing in. The app is designed to keep speech processing on the machine instead of sending audio to a cloud API.
+## Features
 
-## What It Does
+- Push-to-talk dictation with a configurable hotkey (Right Option by default).
+- A recording overlay that shows audio levels and transcription status.
+- A custom dictionary for replacing words and phrases in transcripts.
+- Local transcript history that can be disabled or deleted.
+- A menu bar app with settings, model setup, and permission guidance.
 
-- Records speech while a push-to-talk hotkey is held.
-- Transcribes speech locally through the Swift sidecar.
-- Pastes the final transcript into the focused macOS text field.
-- Stores settings, dictionary entries, and history locally.
-- Provides a desktop app, settings UI, and landing page from one pnpm workspace.
+## Architecture
+
+The Electron app manages the interface, tray, settings, dictionary, and history. It starts a Swift sidecar as a child process for global hotkeys, microphone capture, local transcription, and pasting into other apps. They exchange newline-delimited JSON over stdin/stdout.
+
+```mermaid
+flowchart TD
+    UI["React UI: setup, settings, dictionary, history, recording overlay"]
+    Main["Electron main process: app lifecycle, tray, IPC"]
+    Data["Local settings, dictionary, and SQLite history"]
+    Sidecar["Swift sidecar: hotkeys, recording, permissions"]
+    Speech["WhisperKit: local transcription"]
+    Models["Model files on disk"]
+    Remote["Hugging Face model repository"]
+    Target["Focused macOS text field"]
+
+    UI <-->|"Electron IPC through preload"| Main
+    Main <--> Data
+    Main <-->|"JSON over stdin/stdout"| Sidecar
+    Sidecar <-->|"Audio / transcript"| Speech
+    Remote -->|"Model download"| Models
+    Models --> Speech
+    Sidecar -->|"Dictionary replacements, clipboard paste"| Target
+```
+
+When you release the hotkey, the sidecar transcribes the recording, applies dictionary replacements, and pastes the result using the clipboard and a simulated Command-V. It then restores the previous clipboard contents. Electron receives the transcript and saves it if history is enabled.
+
+The landing page is a separate Vite app in the same pnpm workspace.
 
 ## Requirements
 
-- macOS 13 or newer.
-- Apple Silicon Mac.
-- Node.js 20 or newer.
-- pnpm.
-- Swift toolchain for building the sidecar.
+- Apple Silicon Mac with macOS 13 or newer.
+- Node.js 20 or newer and pnpm 10.33.3 (the version pinned by the workspace).
+- Swift 5.10 or newer to build the sidecar.
 
 ## Setup
 
-Install dependencies from the repository root:
+Run from the repository root:
 
 ```sh
 pnpm install
-```
-
-Build the Swift sidecar before packaging or running a full production build:
-
-```sh
 pnpm build:sidecar
+pnpm dev
 ```
 
-The sidecar binary is copied into `apps/desktop/resources/bin/open-flow-sidecar`.
+Build the sidecar before starting the desktop app. The build script copies and ad-hoc signs the binary at `apps/desktop/resources/bin/open-flow-sidecar`. Rebuild it after changing Swift code.
+
+On first launch, install a speech model and grant Microphone, Input Monitoring, and Accessibility permissions using the app's setup guidance. Model downloads require internet access; transcription runs locally.
 
 ## Commands
 
@@ -44,32 +66,28 @@ pnpm dev:landing      # run the landing page
 pnpm build:sidecar    # build the Swift sidecar
 pnpm build:desktop    # build the desktop app
 pnpm build:landing    # build the landing page
-pnpm build            # build everything
-pnpm lint             # run lint checks
-pnpm typecheck        # run TypeScript checks
-pnpm test             # run tests
+pnpm build            # build all three
+pnpm lint             # lint the workspace
+pnpm typecheck        # check TypeScript
+pnpm test             # run workspace tests
 ```
 
-## Project Layout
+Run the Swift tests separately:
 
-```text
-open-flow/
-  apps/
-    desktop/    Electron app, renderer UI, tray, settings, IPC, storage
-    landing/    Vite landing page
-    sidecar/    Swift binary for macOS-native work
-  packages/
-    shared/     Shared TypeScript types and IPC contracts
-  scripts/      Build scripts
-  spec.md       Product and architecture notes
+```sh
+swift test --package-path apps/sidecar
 ```
 
-## How It Works
+## Project layout
 
-The Electron app owns the UI, settings, dictionary, history, and app lifecycle. It starts the Swift sidecar as a child process and talks to it using newline-delimited JSON over stdin/stdout.
+- `apps/desktop/` — Electron main process, React UI, preload bridge, and local storage.
+- `apps/sidecar/` — Swift native functionality and WhisperKit integration; see the [sidecar README](apps/sidecar/README.md).
+- `apps/landing/` — Vite landing page.
+- `packages/shared/` — Shared TypeScript settings types and IPC contracts.
+- `scripts/` — Sidecar build and notarization scripts.
 
-The sidecar handles the macOS-specific pieces that Electron should not own directly: global hotkeys, microphone capture, local transcription, accessibility permissions, and pasting text into the active field.
+## Local data and privacy
 
-## Privacy Model
+Settings, dictionary entries, transcript history, and downloaded models are stored under `~/Library/Application Support/open-flow/`. Settings and dictionary entries use JSON files; history uses SQLite.
 
-open-flow is built around local processing. Audio, transcripts, models, settings, and dictionary data are intended to stay on the user's Mac.
+Audio is processed locally. Model loading uses WhisperKit's download/cache flow, so local transcription does not mean the app never accesses the network. You can turn off transcript history in settings or delete saved entries from the History page.
