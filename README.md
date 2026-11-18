@@ -41,12 +41,14 @@ The landing page is a separate Vite app in the same pnpm workspace.
 ## Requirements
 
 - Apple Silicon Mac with macOS 13 or newer.
-- Node.js 20 or newer and pnpm 10.33.3 (the version pinned by the workspace).
+- Node.js 22 (22.12.0 or newer) and pnpm 10.33.3 (the versions specified by the workspace).
 - Swift 5.10 or newer to build the sidecar.
 
 ## Setup
 
 Run from the repository root:
+
+Use Node.js 22 before installing dependencies (`nvm install && nvm use` if you use nvm; the version is specified in `.nvmrc`). The current `better-sqlite3` dependency does not compile with Node.js 26.
 
 ```sh
 pnpm install
