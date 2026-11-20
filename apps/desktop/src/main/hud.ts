@@ -6,8 +6,8 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 const RENDERER_DEV_URL = process.env['ELECTRON_RENDERER_URL'];
 
-const HUD_WIDTH = 280;
-const HUD_HEIGHT = 72;
+const HUD_WIDTH = 316;
+const HUD_HEIGHT = 82;
 
 let hud: BrowserWindow | null = null;
 
@@ -17,6 +17,9 @@ function ensureHud(): BrowserWindow {
   hud = new BrowserWindow({
     width: HUD_WIDTH,
     height: HUD_HEIGHT,
+    // A non-activating panel can appear over other apps (including fullscreen
+    // Spaces) while showInactive() keeps keyboard focus in the target field.
+    ...(process.platform === 'darwin' ? { type: 'panel' } : {}),
     frame: false,
     transparent: true,
     backgroundColor: '#00000000',
@@ -29,7 +32,7 @@ function ensureHud(): BrowserWindow {
     focusable: false,
     fullscreenable: false,
     show: false,
-    hasShadow: true,
+    hasShadow: false,
     acceptFirstMouse: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.mjs'),
@@ -56,18 +59,19 @@ function ensureHud(): BrowserWindow {
   return hud;
 }
 
-function positionAboveActiveScreen(win: BrowserWindow): void {
+function positionAtBottomOfActiveScreen(win: BrowserWindow): void {
   const point = screen.getCursorScreenPoint();
   const display = screen.getDisplayNearestPoint(point);
-  const { x, y, width } = display.workArea;
+  const { x, y, width, height } = display.workArea;
   const targetX = x + Math.floor((width - HUD_WIDTH) / 2);
-  const targetY = y + 48;
+  // The work area excludes the Dock; leave a little breathing room above it.
+  const targetY = Math.max(y, y + height - HUD_HEIGHT - 52);
   win.setPosition(targetX, targetY);
 }
 
 export function showHud(): void {
   const win = ensureHud();
-  positionAboveActiveScreen(win);
+  positionAtBottomOfActiveScreen(win);
   win.showInactive();
   win.webContents.send('hud:state', { state: 'recording' });
 }
