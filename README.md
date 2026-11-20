@@ -83,6 +83,23 @@ Run the Swift tests separately:
 swift test --package-path apps/sidecar
 ```
 
+## Landing page deployment (Vercel)
+
+Set the Vercel project's **Root Directory** to `apps/landing` and enable
+**Include source files outside of the Root Directory in the Build Step** so the
+workspace lockfile and shared TypeScript configuration are available. Use Node.js
+**22.x** (also pinned in the landing page's `package.json`).
+
+The checked-in `apps/landing/vercel.json` selects Vite, builds only the landing
+page, and publishes `dist`. Its filtered, frozen install skips lifecycle scripts
+to avoid compiling the desktop app's `better-sqlite3` dependency or running the
+workspace's Electron rebuild hook. This override applies only to Vercel; normal
+local desktop installs still rebuild native modules.
+
+After pushing these files, redeploy with the build cache disabled once. Do not
+use the workspace's root `build` command for this project: it also builds the
+macOS sidecar and Electron app.
+
 ## Project layout
 
 - `apps/desktop/` — Electron main process, React UI, preload bridge, and local storage.
