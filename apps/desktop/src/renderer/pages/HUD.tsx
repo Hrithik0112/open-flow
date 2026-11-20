@@ -20,6 +20,8 @@ export function HUD(): JSX.Element {
   useEffect(() => {
     const offState = window.openFlow.hud.onState((msg) => {
       setState(msg.state);
+      lastRmsRef.current = 0;
+      setSmoothedRms(0);
     });
     const offLevels = window.openFlow.hud.onLevels((msg) => {
       lastRmsRef.current = msg.rms;
@@ -39,23 +41,25 @@ export function HUD(): JSX.Element {
     };
   }, []);
 
-  const meterWidth = Math.min(100, Math.round(Math.sqrt(smoothedRms) * 220));
+  const level = Math.min(1, Math.sqrt(smoothedRms) * 2.2);
   const label = state === 'recording' ? 'Listening' : 'Transcribing';
 
   return (
     <div className="hud-root">
-      <div className="hud-card">
-        <div className="hud-dot" data-state={state} />
-        <div className="hud-content">
-          <div className="hud-kicker">open-flow</div>
-          <div className="hud-label">{label}</div>
-          {state === 'recording' && (
-            <div className="hud-meter">
-              <div className="hud-meter-fill" style={{ width: `${meterWidth}%` }} />
-            </div>
-          )}
-          {state === 'transcribing' && <div className="hud-meter hud-meter-indeterminate" />}
+      <div className="hud-card" data-state={state} role="status" aria-live="polite">
+        <div className="hud-wave" aria-hidden="true">
+          {[0.4, 0.75, 1, 0.65, 0.35].map((weight, index) => (
+            <span
+              key={index}
+              style={{
+                height: `${4 + level * weight * 20}px`,
+                animationDelay: `${index * 120}ms`,
+              }}
+            />
+          ))}
         </div>
+        <span className="hud-label">{label}</span>
+        <span className="hud-status-dot" aria-hidden="true" />
       </div>
     </div>
   );

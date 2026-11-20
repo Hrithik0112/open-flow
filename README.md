@@ -58,6 +58,8 @@ pnpm dev
 
 Build the sidecar before starting the desktop app. The build script copies and ad-hoc signs the binary at `apps/desktop/resources/bin/open-flow-sidecar`. Rebuild it after changing Swift code.
 
+Dependency installation also rebuilds `better-sqlite3` for Electron. If history reports `ERR_DLOPEN_FAILED` or a `NODE_MODULE_VERSION` mismatch after reinstalling or rebuilding dependencies, stop the desktop app, run `pnpm rebuild:native`, then restart it with `pnpm dev`. A plain Node.js rebuild targets a different runtime than Electron.
+
 On first launch, install a speech model and grant Microphone, Input Monitoring, and Accessibility permissions using the app's setup guidance. Model downloads require internet access; transcription runs locally.
 
 ## Commands
@@ -68,6 +70,7 @@ pnpm dev:landing      # run the landing page
 pnpm build:sidecar    # build the Swift sidecar
 pnpm build:desktop    # build the desktop app
 pnpm build:landing    # build the landing page
+pnpm rebuild:native   # rebuild better-sqlite3 for Electron
 pnpm build            # build all three
 pnpm lint             # lint the workspace
 pnpm typecheck        # check TypeScript
